@@ -1,238 +1,106 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Flappy Bird Clone</title>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevents scrolling */
-        }
-        canvas {
-            display: block;
-            background-color: #70c5ce;
-        }
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      canvas {
+        position: absolute;
+        margin: auto;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
     </style>
-</head>
-<body>
-<canvas id="gameCanvas"></canvas>
-<script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-
-    function resizeCanvas() {
+  </head>
+  <body>
+    <canvas id='gameCanvas'></canvas>
+    <script>
+      let canvas = document.getElementById('gameCanvas');
+      let context = canvas.getContext('2d');
+      
+      let bird = {
+        x: 50,
+        y: 50,
+        size: 20,
+        dy: 0,
+        jumpForce: 5,
+        color: 'red'
+      };
+      
+      let pipes = [];
+      let pipeWidth = 100;
+      let pipeGap = 200;
+      let pipeFrequency = 150;
+      
+      function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    let frames = 0;
-
-    const state = {
-        current: 0,
-        getReady: 0,
-        game: 1,
-        over: 2
-    }
-
-    const startBtn = {
-        x: 120,
-        y: 263,
-        w: 83,
-        h: 29
-    }
-
-    canvas.addEventListener("click", function(evt){
-        switch(state.current){
-            case state.getReady:
-                state.current = state.game;
-                break;
-            case state.game:
-                bird.flap();
-                break;
-            case state.over:
-                let rect = canvas.getBoundingClientRect();
-                let clickX = evt.clientX - rect.left;
-                let clickY = evt.clientY - rect.top;
-
-                if(clickX >= startBtn.x && clickX <= startBtn.x + startBtn.w &&
-                   clickY >= startBtn.y && clickY <= startBtn.y + startBtn.h){
-                    pipes.reset();
-                    bird.speedReset();
-                    score.reset();
-                    state.current = state.getReady;
-                }
-                break;
+      }
+      
+      function updateGame() {
+        bird.y += bird.dy;
+        bird.dy += 0.5; // Gravity
+        
+        if (pipes.length == 0 || pipes[pipes.length - 1].x < canvas.width - pipeFrequency) {
+          let pipeY = (Math.random() * (canvas.height - pipeGap)) + pipeGap / 2;
+          pipes.push({x: canvas.width, y: pipeY});
         }
-    });
-
-    const bg = {
-        draw: function(){
-            ctx.fillStyle = "#70c5ce";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        for (let i = 0; i < pipes.length; i++) {
+          pipes[i].x -= 2;
+          
+          if (pipes[i].x == bird.x && 
+              (bird.y < pipes[i].y - pipeGap / 2 || bird.y + bird.size > pipes[i].y + pipeGap / 2)) {
+            resetGame();
+          }
         }
-    }
-
-    const fg = {
-        y: canvas.height - 112,
-        draw: function(){
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, this.y, canvas.width, 112);
-        },
-        update: function(){
-            // No vertical movement needed
+        
+        if (pipes[0] && pipes[0].x + pipeWidth < 0) {
+          pipes.shift();
         }
-    }
-
-    const bird = {
-        x: 50,
-        y: 150,
-        width: 34,
-        height: 26,
-        gravity: 0.25,
-        jump: 4.6,
-        speed: 0,
-        draw: function(){
-            ctx.fillStyle = "#FF0"; // Yellow bird
-            ctx.fillRect(this.x, this.y, this.width, this.height);
-        },
-        flap: function(){
-            this.speed = - this.jump;
-        },
-        update: function(){
-            this.speed += this.gravity;
-            this.y += this.speed;
-
-            if(this.y + this.height >= canvas.height - fg.y){
-                this.y = canvas.height - fg.y - this.height;
-                if(state.current == state.game){
-                    state.current = state.over;
-                }
-            }
-            if(this.y < 0){
-                this.y = 0;
-            }
-        },
-        speedReset: function(){
-            this.speed = 0;
+      }
+      
+      function renderGame() {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        
+        context.fillStyle = bird.color;
+        context.fillRect(bird.x, bird.y, bird.size, bird.size);
+        
+        context.fillStyle = 'green';
+        for (let pipe of pipes) {
+          context.fillRect(pipe.x, 0, pipeWidth, pipe.y - pipeGap / 2);
+          context.fillRect(pipe.x, pipe.y + pipeGap / 2, pipeWidth, canvas.height - pipe.y - pipeGap / 2);
         }
-    }
-
-    const pipes = {
-        position: [],
-        width: 53,
-        height: 400,
-        gap: 100,
-        maxYPos: -150,
-        dx: 2,
-        draw: function(){
-            for(let i = 0; i < this.position.length; i++){ 
-                let p = this.position[i];
-                
-                // Top pipe
-                ctx.fillStyle = "#0F0"; // Green pipe
-                ctx.fillRect(p.x, p.y, this.width, this.height);
-
-                // Bottom pipe
-                ctx.fillRect(p.x, p.y + this.height + this.gap, this.width, this.height);
-            }
-        },
-        update: function(){
-            if(state.current !== state.game) return;
-
-            if(frames % 100 == 0){
-                this.position.push({
-                    x: canvas.width,
-                    y: this.maxYPos * (Math.random() + 1)
-                });
-            }
-            for(let i = 0; i < this.position.length; i++){ 
-                let p = this.position[i];
-
-                // Move the pipes to the left
-                p.x -= this.dx;
-
-                // If the pipes go beyond canvas, we delete them from the array
-                if(p.x + this.width <= 0){
-                    this.position.shift();
-                    score.value += 1;
-                    score.best = Math.max(score.value, score.best);
-                    localStorage.setItem("best", score.best);
-                }
-            }
-        },
-        reset: function(){
-            this.position = [];
-        }
-    }
-
-    const getReady = {
-        draw: function(){
-            if(state.current == state.getReady){
-                ctx.fillStyle = "#FFF";
-                ctx.font = "35px Teko";
-                ctx.textAlign = "center";
-                ctx.fillText("Tap to Play", canvas.width / 2, 150);
-            }
-        }
-    }
-
-    const gameOver = {
-        draw: function(){
-            if(state.current == state.over){
-                ctx.fillStyle = "#FFF";
-                ctx.font = "35px Teko";
-                ctx.textAlign = "center";
-                ctx.fillText("Game Over", canvas.width / 2, 150);
-                ctx.fillText("Tap to Restart", canvas.width / 2, 200);
-            }
-        }
-    }
-
-    const score = {
-        best: parseInt(localStorage.getItem("best")) || 0,
-        value: 0,
-        draw: function(){
-            ctx.fillStyle = "#FFF";
-            if(state.current == state.game){
-                ctx.font = "35px Teko";
-                ctx.fillText(this.value, canvas.width / 2, 50);
-            } else if(state.current == state.over){
-                ctx.font = "25px Teko";
-                ctx.fillText("Score: " + this.value, canvas.width / 2, 186);
-                ctx.fillText("Best: " + this.best, canvas.width / 2, 228);
-            }
-        },
-        reset: function(){
-            this.value = 0;
-        }
-    }
-
-    function draw(){
-        bg.draw();
-        pipes.draw();
-        fg.draw();
-        bird.draw();
-        getReady.draw();
-        gameOver.draw();
-        score.draw();
-    }
-
-    function update(){
-        bird.update();
-        fg.update();
-        pipes.update();
-    }
-
-    function loop(){
-        update();
-        draw();
-        frames++;
-        requestAnimationFrame(loop);
-    }
-    loop();
-</script>
-</body>
+      }
+      
+      function resetGame() {
+        bird.y = 50;
+        bird.dy = 0;
+        pipes = [];
+      }
+      
+      function gameLoop() {
+        updateGame();
+        renderGame();
+        requestAnimationFrame(gameLoop);
+      }
+      
+      window.onload = function() {
+        resizeCanvas();
+        gameLoop();
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('click', () => {
+          bird.dy = -bird.jumpForce;
+        });
+        window.addEventListener('touchstart', () => {
+          bird.dy = -bird.jumpForce;
+        });
+      };
+    </script>
+  </body>
 </html>
